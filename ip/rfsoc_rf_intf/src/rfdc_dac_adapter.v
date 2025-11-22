@@ -56,7 +56,7 @@ module rfdc_dac_adapter #(
     // CDC FIFO for clock domain crossing
     wire [RFDC_AXIS_TDATA_WIDTH-1:0] dac_fifo_in;
     wire dac_fifo_wr_en;
-    reg [RFDC_AXIS_TDATA_WIDTH-1:0] dac_fifo_out;
+    wire [RFDC_AXIS_TDATA_WIDTH-1:0] dac_fifo_out;
     wire dac_fifo_rd_en;
     wire dac_fifo_empty, dac_fifo_full;
 

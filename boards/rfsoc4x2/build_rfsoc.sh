@@ -81,8 +81,11 @@ cat > build_${BOARD}_auto.tcl <<EOF
 set BOARD_NAME "$BOARD"
 set NUM_JOBS $JOBS
 
+# Change to board directory to find set_files.tcl
+cd \$BOARD_NAME
+
 # Source main build script
-source openwifi.tcl
+source ../openwifi.tcl
 
 # Run synthesis
 reset_run synth_1
@@ -145,6 +148,7 @@ cd "$OPENWIFI_ROOT/boards"
 
 # Extract utilization and timing
 if [ -f "openwifi_${BOARD}/openwifi_${BOARD}.runs/impl_1/system_top_utilization_placed.rpt" ]; then
+    mkdir -p "$OPENWIFI_HW_IMG_DIR/boards/$BOARD"
     echo "" > "$OPENWIFI_HW_IMG_DIR/boards/$BOARD/build_summary.txt"
     echo "========================================" >> "$OPENWIFI_HW_IMG_DIR/boards/$BOARD/build_summary.txt"
     echo "OpenWiFi RFSoC4x2 Build Summary" >> "$OPENWIFI_HW_IMG_DIR/boards/$BOARD/build_summary.txt"

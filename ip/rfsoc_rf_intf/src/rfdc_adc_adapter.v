@@ -128,27 +128,33 @@ module rfdc_adc_adapter #(
             data_valid_int <= 1'b0;
         end else begin
             if (adc0_fifo_valid) begin
-                // Extract I/Q data (assuming 16-bit samples)
-                i0_data <= adc0_fifo_out[15:0];
-                q0_data <= adc0_fifo_out[31:16];
-                i1_data <= adc0_fifo_out[47:32];
-                q1_data <= adc0_fifo_out[63:48];
-
-                // Apply baseband gain (bit shift)
+                // Extract I/Q data and apply baseband gain (bit shift)
+                // Single assignment path to avoid multiple driver violation
                 case (bb_gain)
+                    3'd0: begin
+                        i0_data <= adc0_fifo_out[15:0];
+                        q0_data <= adc0_fifo_out[31:16];
+                        i1_data <= adc0_fifo_out[47:32];
+                        q1_data <= adc0_fifo_out[63:48];
+                    end
                     3'd1: begin
-                        i0_data <= adc0_fifo_out[14:0] << 1;
-                        q0_data <= adc0_fifo_out[30:15] << 1;
-                        i1_data <= adc0_fifo_out[46:31] << 1;
-                        q1_data <= adc0_fifo_out[62:47] << 1;
+                        i0_data <= {adc0_fifo_out[14:0], 1'b0};
+                        q0_data <= {adc0_fifo_out[30:15], 1'b0};
+                        i1_data <= {adc0_fifo_out[46:31], 1'b0};
+                        q1_data <= {adc0_fifo_out[62:47], 1'b0};
                     end
                     3'd2: begin
-                        i0_data <= adc0_fifo_out[13:0] << 2;
-                        q0_data <= adc0_fifo_out[29:14] << 2;
-                        i1_data <= adc0_fifo_out[45:30] << 2;
-                        q1_data <= adc0_fifo_out[61:46] << 2;
+                        i0_data <= {adc0_fifo_out[13:0], 2'b00};
+                        q0_data <= {adc0_fifo_out[29:14], 2'b00};
+                        i1_data <= {adc0_fifo_out[45:30], 2'b00};
+                        q1_data <= {adc0_fifo_out[61:46], 2'b00};
                     end
-                    // Add more gain settings as needed
+                    3'd3: begin
+                        i0_data <= {adc0_fifo_out[12:0], 3'b000};
+                        q0_data <= {adc0_fifo_out[28:13], 3'b000};
+                        i1_data <= {adc0_fifo_out[44:29], 3'b000};
+                        q1_data <= {adc0_fifo_out[60:45], 3'b000};
+                    end
                     default: begin
                         i0_data <= adc0_fifo_out[15:0];
                         q0_data <= adc0_fifo_out[31:16];

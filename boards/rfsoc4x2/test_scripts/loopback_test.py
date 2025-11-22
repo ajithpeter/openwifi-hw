@@ -77,15 +77,15 @@ class RFSoCLoopbackTest:
 
         # Allocate DMA buffers
         print("Allocating DMA buffers...")
-        tx_buffer = allocate(shape=(len(tone_i),), dtype=np.int16)
-        rx_buffer = allocate(shape=(len(tone_i),), dtype=np.int16)
+        tx_buffer = allocate(shape=(len(tone_i)*2,), dtype=np.int16)  # *2 for interleaved I/Q
+        rx_buffer = allocate(shape=(len(tone_i)*2,), dtype=np.int16)  # *2 for interleaved I/Q
 
         # Load TX data (interleaved I/Q)
         # Format: [I0, Q0, I1, Q1, ...]
         tx_data = np.empty(len(tone_i) * 2, dtype=np.int16)
         tx_data[0::2] = tone_i
         tx_data[1::2] = tone_q
-        tx_buffer[:] = tx_data[:len(tone_i)]
+        tx_buffer[:] = tx_data  # Copy full interleaved I/Q data
 
         # Start RX DMA
         print("Starting RX DMA...")
