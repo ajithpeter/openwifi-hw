@@ -1,0 +1,108 @@
+# OpenWiFi Hardware Build Artifacts and Cache Files
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Vivado build artifacts
+*.jou
+*.log
+*.str
+*.zip
+.Xil/
+*.cache/
+*.runs/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.gen/
+vivado*.backup*
+*.backup*
+component.xml
+usage_statistics_webtalk.*
+webtalk.*
+*.wdb
+*.wcfg
+
+# Vivado project files (preserve only sources)
+*.xpr.backup
+*.xpr
+
+# Implementation results
+*.bit
+*.bin
+*.ltx
+*.mmi
+*.hwh
+*.xsa
+*.hdf
+
+# Checkpoint files
+*.dcp
+
+# Reports
+*.rpt
+*.txt
+!README.txt
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# Build output directories
+ip_repo/
+openwifi_*/
+sdk_workspace/
+boot_bin/
+
+# Board-specific build directories
+boards/*/build_*auto.tcl
+boards/*/build_*.log
+boards/*/ip_repo/
+boards/*/openwifi_*/
+
+# Test results
+test_results/
+*.png
+*.pdf
+loopback_test_results.png
+
+# Documentation build artifacts
+docs/_build/
+docs/.doctrees/
+
+# Exclude all bitstreams and hardware files
+*.bit.bin
+system_top.bit
+system_top.xsa
+
+# But preserve source files
+!*.v
+!*.vhd
+!*.sv
+!*.tcl
+!*.xdc
+!*.py
+!*.sh
+!*.md
+!*.yml
+!*.yaml
+!*.json
+!*.c
+!*.h
+!Makefile
