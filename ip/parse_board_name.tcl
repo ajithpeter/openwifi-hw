@@ -70,6 +70,13 @@ if {$BOARD_NAME=="zed_fmcs2"} {
    set board_part_string []
    set board_id_string []
    set fpga_size_flag 0
+} elseif {$BOARD_NAME=="rfsoc4x2"} {
+   set ultra_scale_flag 2
+   set rfsoc_flag 1
+   set part_string "xczu48dr-ffvg1517-2-e"
+   set board_part_string "realdigital.org:rfsoc4x2:part0:1.0"
+   set board_id_string "rfsoc4x2"
+   set fpga_size_flag 1
 } else {
    set ultra_scale_flag []
    set part_string []
