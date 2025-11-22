@@ -1,0 +1,51 @@
+BUILD CONFIGURATION: RX-ONLY (Monitor Mode + Remote ID Reception)
+TARGET: Zynq 7020 (antsdr, antsdr_e200, e310v2)
+
+ENABLED MODULES:
+✅ enhanced_pkt_filter.v        - WiFi packet filtering for monitor mode
+✅ nan_action_handler.v         - NAN/WiFi Aware frame parsing
+✅ remote_id_codec.v            - ASTM F3411 Remote ID decoding (hardware)
+✅ vendor_ie_codec.v            - Vendor Information Element parsing
+✅ enhanced_xpu_wrapper.v       - Top-level integration
+
+DISABLED MODULES:
+❌ frame_injection_ctrl.v       - Frame injection (TX functionality)
+
+RESOURCE ESTIMATES:
+LUTs:    22,000 / 53,200 = 41.4% (with base OpenWiFi)
+FFs:     16,500 / 106,400 = 15.5%
+BRAM:    40 / 140 = 28.6%
+DSP:     25 / 220 = 11.4%
+
+FEATURES:
+✅ Full WiFi monitor mode (802.11a/g/n)
+✅ Promiscuous mode support
+✅ All frame type capture (management, control, data)
+✅ NAN action frame detection
+✅ Drone Remote ID reception (ASTM F3411)
+✅ All 6 Remote ID message types
+✅ Vendor IE parsing from beacons
+✅ PCAP export (Wireshark compatible)
+✅ FCS validation
+✅ RSSI measurement
+
+EXCLUDED FEATURES:
+❌ Frame transmission
+❌ Beacon injection
+❌ Remote ID transmission
+❌ wfb-ng frame injection
+
+SOFTWARE TOOLS ENABLED:
+✅ xpu_mon           - WiFi monitor tool
+✅ xpu_remote_id     - Remote ID receiver (monitor mode only)
+✅ monitor_beacons   - Beacon scanner example
+✅ remote_id_receiver - Remote ID reception example
+❌ xpu_inject        - Frame injection (disabled)
+❌ inject_beacon     - Beacon injection (disabled)
+❌ remote_id_transmitter - Remote ID TX (disabled)
+
+BUILD COMMAND:
+cd /home/user/openwifi-hw/ip/enhanced_xpu
+./build_antsdr.sh --config rx_only
+
+BRANCH: claude/rx-only-z7020-016NinPPubrhjENgJbg7a1qj
