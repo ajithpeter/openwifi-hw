@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2025 OpenWiFi Project
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Kbuild file for Enhanced XPU kernel module
+
+obj-m := enhanced_xpu.o
+enhanced_xpu-objs := enhanced_xpu_drv.o
+
+# Include paths
+ccflags-y += -I$(src)/../include
