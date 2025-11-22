@@ -1,0 +1,72 @@
+BUILD CONFIGURATION: MINIMAL BEACON MONITOR (Zynq 7010 Experimental)
+TARGET: Zynq 7010 (ADALM-PLUTO) - EXPERIMENTAL / NOT TESTED
+
+⚠️ WARNING: This configuration is EXPERIMENTAL and may not fit on Zynq 7010
+⚠️ RECOMMENDATION: Upgrade to antsdr (Zynq 7020) for full functionality
+
+ENABLED MODULES:
+✅ minimal_beacon_filter.v     - Simplified beacon-only filtering
+✅ ssid_extractor.v            - SSID extraction from beacons
+
+DISABLED MODULES:
+❌ enhanced_pkt_filter.v       - Full packet filter (too large)
+❌ nan_action_handler.v        - NAN parsing (not needed)
+❌ remote_id_codec.v           - Remote ID (not supported)
+❌ vendor_ie_codec.v           - Vendor IE (not supported)
+❌ frame_injection_ctrl.v      - Frame injection (not supported)
+
+BASE OPENWIFI MODIFICATIONS REQUIRED:
+⚠️ Remove TX path completely (OPENOFDM_TX, TX_INTF)
+⚠️ Simplify RX path (reduce buffer sizes)
+⚠️ Remove CSMA/CA state machine
+⚠️ Reduce DMA buffer sizes
+
+RESOURCE ESTIMATES (Zynq 7010 - 28,000 LUTs):
+LUTs:    18,000 / 28,000 = 64% ⚠️ TIGHT
+FFs:     12,000 / 35,200 = 34% ✅
+BRAM:    30 / 60 = 50% ⚠️
+DSP:     15 / 80 = 19% ✅
+
+⚠️ NOTE: Base OpenWiFi alone uses ~45K LUTs which exceeds Zynq 7010 capacity
+⚠️ This minimal configuration REQUIRES significant modifications to base OpenWiFi
+
+FEATURES:
+✅ 802.11 beacon reception (a/g/n OFDM only)
+✅ SSID extraction
+✅ Channel detection
+✅ RSSI measurement
+✅ Basic encryption type detection
+
+EXCLUDED FEATURES:
+❌ Remote ID support
+❌ NAN parsing
+❌ Full monitor mode (data/control frames)
+❌ Promiscuous mode
+❌ Frame transmission
+❌ Vendor IE parsing
+❌ PCAP export
+❌ FCS validation (simplified)
+
+SOFTWARE TOOLS ENABLED:
+✅ minimal_beacon_scanner - Simple beacon scanner only
+❌ xpu_mon - Not available (too complex)
+❌ xpu_remote_id - Not available (no Remote ID)
+❌ All other tools - Not available
+
+IMPLEMENTATION STATUS:
+❌ NOT IMPLEMENTED - This is a placeholder configuration
+❌ Requires major rewrite of base OpenWiFi
+❌ Not tested on actual hardware
+❌ May not fit even with modifications
+
+RECOMMENDATION:
+Instead of using this minimal configuration, we STRONGLY RECOMMEND:
+1. Upgrade to antsdr (~$150-200) with Zynq 7020
+2. Use RX-Only configuration (41% LUT utilization)
+3. Get full monitor mode + Remote ID support
+
+The cost difference ($150-200) is FAR less than the development effort
+required to make this minimal configuration work on Zynq 7010.
+
+BRANCH: claude/minimal-z7010-016NinPPubrhjENgJbg7a1qj
+STATUS: EXPERIMENTAL / NOT RECOMMENDED
