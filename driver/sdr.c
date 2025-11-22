@@ -255,7 +255,49 @@ inline void openwifi_rf_rx_update_after_tuning(struct openwifi_priv *priv, u32 a
 static void rfsoc_rf_set_channel(struct ieee80211_hw *dev,
           struct ieee80211_conf *conf)
 {
+  struct openwifi_priv *priv = dev->priv;
+  u32 target_freq_mhz;
+  u32 actual_rx_freq, actual_tx_freq;
+  bool change_flag;
 
+  target_freq_mhz = conf->chandef.chan->center_freq;
+  actual_rx_freq = target_freq_mhz - priv->rx_freq_offset_to_lo_MHz;
+  change_flag = (actual_rx_freq != priv->actual_rx_lo);
+
+  printk("%s rfsoc_rf_set_channel target %dMHz rx offset %dMHz current %dMHz change flag %d\n",
+         sdr_compatible_str, target_freq_mhz, priv->rx_freq_offset_to_lo_MHz,
+         priv->actual_rx_lo, change_flag);
+
+  if (change_flag) {
+    actual_tx_freq = target_freq_mhz - priv->tx_freq_offset_to_lo_MHz;
+
+    printk("%s rfsoc_rf_set_channel target %dMHz tx offset %dMHz current %dMHz\n",
+           sdr_compatible_str, target_freq_mhz, priv->tx_freq_offset_to_lo_MHz,
+           priv->actual_tx_lo);
+
+    // RFSoC uses RFDC NCO for frequency tuning instead of external LO
+    // NCO frequency configuration would be done via RFDC driver or register access
+    // For now, update internal state (actual RFDC control requires libmetal/IIO integration)
+
+    // TODO: Implement RFDC NCO frequency control via:
+    // Option 1: RFDC IIO driver interface (preferred for production)
+    // Option 2: Direct register write to RFDC NCO registers
+    // Option 3: libmetal access to RFDC configuration
+
+    // Store frequency for future RFDC configuration
+    priv->actual_tx_lo = actual_tx_freq;
+    priv->actual_rx_lo = actual_rx_freq;
+    priv->band = freq_MHz_to_band(actual_rx_freq);
+
+    // RFSoC does not require TX quadrature calibration (done in FPGA/DAC)
+    // No AD9361-style calibration needed
+
+    // Update RX configuration (RSSI correction, LBT threshold, etc.)
+    openwifi_rf_rx_update_after_tuning(priv, actual_rx_freq);
+
+    printk("%s rfsoc_rf_set_channel %dMHz done (RFDC NCO control pending implementation)\n",
+           sdr_compatible_str, target_freq_mhz);
+  }
 }
 
 static void ad9361_rf_set_channel(struct ieee80211_hw *dev,
