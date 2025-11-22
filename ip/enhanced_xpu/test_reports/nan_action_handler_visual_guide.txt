@@ -1,0 +1,323 @@
+================================================================================
+NAN ACTION HANDLER - VISUAL REFERENCE GUIDE
+================================================================================
+
+FRAME FORMAT
+────────────────────────────────────────────────────────────────────────────
+
+WiFi Frame Layout:
+
+┌────────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│  MAC HEADER (24 bytes)                                            │
+│  ├─ Frame Control (2)                                             │
+│  ├─ Duration (2)                                                  │
+│  ├─ Address 1-4 (18 + 2 padding)                                  │
+│  └─ Sequence Control (2)                                          │
+│                                                                    │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  NAN ACTION FRAME HEADER (7 bytes)                                │
+│  ├─ Category: 0x7F (Vendor Specific)                              │
+│  ├─ OUI: 0x50 0x6F 0x9A (WiFi Alliance)                           │
+│  ├─ OUI Type: 0x13 (NAN)                                          │
+│  ├─ OUI Subtype: 0x00                                             │
+│  └─ Dialog Token (2 bytes)                                        │
+│                                                                    │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  TLV ATTRIBUTES (variable length)                                 │
+│                                                                    │
+│  Attribute 1:                                                     │
+│  ├─ Type (1 byte): 0x00 (Master Indication)                       │
+│  ├─ Length (2 bytes, LE): variable                                │
+│  └─ Value: ...                                                    │
+│                                                                    │
+│  Attribute 2:                                                     │
+│  ├─ Type (1 byte): 0x03 ← SERVICE DESCRIPTOR                      │
+│  ├─ Length (2 bytes, LE): 11 + payload_len                        │
+│  └─ Value:                                                        │
+│     ├─ Service ID (6 bytes): 0x88 0x69 0x19 0x9D 0x92 0x09       │
+│     ├─ Instance ID (1)                                            │
+│     ├─ Requestor Instance ID (1)                                  │
+│     ├─ Service Control (1)                                        │
+│     ├─ Binding Bitmap (1)                                         │
+│     ├─ Service Info Length (1): MUST BE 25 for Remote ID          │
+│     └─ Service Info (25 bytes): ← REMOTE ID PAYLOAD               │
+│        ├─ Message Type (1): 0x00=Basic, 0x01=Location, etc.       │
+│        └─ Message Data (24 bytes): ASTM F3411-22 payload          │
+│                                                                    │
+│  ... more attributes ...                                          │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+
+                              Frame Bytes:
+           ┌──────────────────────────────────────────┐
+           │ 0          1         2         3        │
+           │ 0123456789ABCDEF0123456789ABCDEF0123456 │
+           ├──────────────────────────────────────────┤
+      Byte │ ........... MAC (24) ...........         │
+       0-23│ ......... SKIP_HEADERS state ..........   │
+      Byte │ FCDUUUUUUUOOINTSDT                      │
+      24-30│ ... ACTION HEADER (7) ...                │
+           ├──────────────────────────────────────────┤
+      Byte │ ATTYPLENLENVAL..................          │
+      31-33│ ATTR_TYPE → ATTR_LEN_LOW → ATTR_LEN_HIGH │
+           ├──────────────────────────────────────────┤
+      Byte │ IIIIIIIINSRCCTLBDRSIIIIII(24 more)       │
+      34-69│ ← SERVICE DESCRIPTOR (36 bytes) ────→    │
+           │ SVC_DESC_ID(6) + HDR(5) + REMOTE_ID(25) │
+           └──────────────────────────────────────────┘
+
+================================================================================
+
+STATE MACHINE EXECUTION TIMELINE
+────────────────────────────────────────────────────────────────────────────
+
+Time  Clock  State          byte_counter  Activity
+────────────────────────────────────────────────────────────────────────────
+t=0   RESET  ST_IDLE               0     All counters reset
+
+t=10  1      ST_IDLE           ←see below
+       ↓
+      pkt_sof=1, is_nan_frame=1, parse_enable=1
+       ↓
+t=20  2      ST_SKIP_HEADERS   1    skip_counter=1, byte_counter=1
+
+t=30  3      ST_SKIP_HEADERS   2    skip_counter=2, byte_counter=2
+            ...
+
+t=320 32     ST_SKIP_HEADERS   31   skip_counter=31, byte_counter=31
+             ↓ skip_counter >= 30, transition triggered
+t=330 33     ST_ATTR_TYPE      31   Ready to read attribute type
+
+t=340 34     ST_ATTR_TYPE      32   Read attr_type=0x03 (Service Descriptor)
+             ↓
+t=350 35     ST_ATTR_LEN_LOW   33   Read length_low=0x24 (36 bytes)
+             ↓
+t=360 36     ST_ATTR_LEN_HIGH  34   Read length_high=0x00
+             ↓ attr_id==0x03, transition to SVC_DESC_ID
+t=370 37     ST_SVC_DESC_ID    35   Read service_id[0]=0x88
+            ...
+t=400 38-43  ST_SVC_DESC_ID    40   Read service_id[5]=0x09
+             ↓ All 6 bytes received, match check (BROKEN!)
+t=410 44     ST_SVC_DESC_HDR   41   attr_value_counter=0
+            ...                      Read Instance, ReqInst, Ctrl, Binding
+t=450 45-48  ST_SVC_DESC_HDR   45   attr_value_counter=4
+             ↓ attr_value_counter >= 10? NO (bug in check)
+t=460 49     ST_SVC_DESC_HDR   46   Continue reading (shouldn't!)
+            ...
+t=???        ST_SVC_DESC_HDR   ??   HANGS - never captures service_info_len
+             
+             After bug fix:
+             
+t=450 45     ST_SVC_DESC_HDR   45   attr_value_counter=4
+             ↓ Capture service_info_len=0x19 (25 bytes)
+             ↓ service_info_len == REMOTE_ID_SIZE? YES
+t=460 46     ST_REMOTE_ID_DATA 46   rid_byte_count=0, rid_sof=1
+            ...                      Extract 25 bytes of Remote ID
+t=550 57     ST_REMOTE_ID_DATA 71   rid_byte_count=25, rid_eof=1
+             ↓ rid_byte_count >= 24
+t=560 58     ST_ATTR_TYPE      71   Look for more attributes
+
+================================================================================
+
+BUG MANIFESTATION TIMELINE
+────────────────────────────────────────────────────────────────────────────
+
+BUG #1: SERVICE ID BYTE ORDER
+────────────────────────────────────────────────────
+
+Input bytes arriving: [0x88, 0x69, 0x19, 0x9D, 0x92, 0x09]
+Expected: 48'h886919_9D9209
+
+Execution:
+
+Clock   service_id_buffer after shift
+──────────────────────────────────────
+  1     48'h00000000_0088
+  2     48'h00000000_6900  ← First byte LOST!
+  3     48'h00000001_9690  ← Wrong positions
+  4     48'h00000019_69XX
+  5     48'h000019_69XXXX
+  6     48'h0019_69XXXXXX
+
+Comparison on Clock 6:
+  Expected: {0x09, buffer[47:8]} == 48'h886919_9D9209
+  Actual:   {0x09, 0x19_69XXXX} == 48'h886919_9D9209
+            0x0919_69XXXX != 0x886919_9D9209
+            
+Result: service_id_match = 0 (WRONG! Should be 1)
+
+────────────────────────────────────────────────────────────────────────────
+
+BUG #2: EOF OVERRIDE PRECEDENCE
+────────────────────────────────
+
+Scenario: Frame completes naturally at ST_ATTR_TYPE
+
+Case statement (should execute):
+  ST_ATTR_TYPE:
+      if (byte_counter >= pkt_length - 3)
+          next_state = ST_COMPLETE;  ← Should complete here
+      else if (pkt_eof)
+          next_state = ST_COMPLETE;  ← Or complete here
+
+EOF override (AFTER case statement):
+  if (pkt_eof && state != ST_REMOTE_ID_DATA &&
+      state != ST_COMPLETE && state != ST_ERROR)
+      next_state = ST_ERROR;  ← OVERRIDES above!
+
+Last assignment wins in Verilog!
+Result: Frame forced to ERROR state instead of COMPLETE
+
+────────────────────────────────────────────────────────────────────────────
+
+BUG #3: TEST BENCH PORT MISMATCH
+────────────────────────────────────
+
+Module port:        Test bench port:
+────────────────────────────────────────
+pkt_data_in    ←→  frame_byte          ✓ (same purpose)
+pkt_data_valid ←→  frame_valid         ✓ (same purpose)
+pkt_sof        ←→  frame_last          ✗ (different meaning!)
+pkt_eof        ←→  (missing)           ✗
+is_nan_frame   ←→  (missing)           ✗
+pkt_length     ←→  frame_length        ✓ (same purpose)
+parse_enable   ←→  (missing)           ✗
+
+rid_data_out   ←→  payload_byte        ✓ (same purpose)
+rid_data_valid ←→  payload_valid       ✓ (same purpose)
+rid_data_ready ←→  (missing)           ✗
+rid_sof        ←→  (missing)           ✗
+rid_eof        ←→  (missing)           ✗
+remote_id_found←→  nan_frame_detected  ✗ (different meaning!)
+parse_complete ←→  payload_complete    ✓ (same purpose)
+error_flags[4]←→  error_invalid_length ✓ (flags[0])
+               ←→  error_wrong_service ✓ (flags[1])
+               ←→  error_truncated_attr ✓ (flags[3])
+
+Result: Compilation fails - module has no port "frame_valid", etc.
+
+────────────────────────────────────────────────────────────────────────────
+
+BUG #4: rid_byte_count NOT RESET
+────────────────────────────────────
+
+First Remote ID Extraction:
+  Clock 1-25: Extract 25 bytes
+              rid_byte_count: 0 → 24
+              
+              if (rid_byte_count == 0)
+                  rid_sof = 1;  ✓ Set on first byte
+              
+              if (rid_byte_count == 24)
+                  rid_eof = 1;  ✓ Set on last byte
+              
+              State transitions to ST_ATTR_TYPE
+              rid_byte_count NOT reset! (stays at 24)
+
+Second Remote ID Extraction (if present):
+  Clock 26+: Try to extract another Remote ID
+            rid_byte_count still 24!
+            
+            if (rid_byte_count == 0)  ← 24 == 0? NO!
+                rid_sof = 1;          ← NEVER SET ✗
+            
+            rid_byte_count continues incrementing 25, 26, ...
+            
+            Condition: if (rid_byte_count >= REMOTE_ID_SIZE - 1)
+                       if (rid_byte_count >= 24)
+                       if (25 >= 24) ← TRUE!
+            
+            State immediately transitions back to ATTR_TYPE!
+            Second Remote ID never fully extracted
+
+================================================================================
+
+TIMING DIAGRAM - SERVICE ID BUG
+────────────────────────────────────────────────────────────────────────────
+
+Input bytes (correct):
+  [0x88, 0x69, 0x19, 0x9D, 0x92, 0x09]
+
+Clock timeline:
+
+  Clk    Byte  Operation                  service_id_buffer Result
+  ──────────────────────────────────────────────────────────────────
+  1      0x88  buffer <= {0x88, 0}        48'h00000000_0088  ✓
+  2      0x69  buffer <= {0x69, 0}        48'h00000000_6900  ✗
+  3      0x19  buffer <= {0x19, 0x69}     48'h00000001_9690  ✗
+  4      0x9D  buffer <= {0x9D, 0x19}     48'h00000019_9XXX  ✗
+  5      0x92  buffer <= {0x92, 0x9D}     48'h000019_9DXXXX  ✗
+  6      0x09  buffer <= {0x09, 0x92}     48'h0019_9D92XXXX  ✗
+         
+         Comparison:
+         {0x09, buffer[47:8]} = {0x09, 0x19_9D92XX}
+                              = 0x0919_9D92XXXX
+         
+         Expected:  0x886919_9D9209
+         Got:       0x0919_9D92XXXX
+         Match: FALSE ✗
+
+Correct implementation (left shift, MSB entry):
+
+  Clk    Byte  Operation              service_id_buffer Result
+  ──────────────────────────────────────────────────────────────────
+  1      0x88  buffer <= 0x88 << 40   48'h88_0000_0000  ✓
+  2      0x69  buffer <= {buf[39:0],0x69} 48'h00_0000_0069  ✗ (still wrong)
+
+Actually, correct method is array-based:
+
+  Clk    Byte  Operation                    
+  ──────────────────────────────────────────────────────────────────
+  1      0x88  bytes[0] <= 0x88
+  2      0x69  bytes[1] <= 0x69
+  3      0x19  bytes[2] <= 0x19
+  4      0x9D  bytes[3] <= 0x9D
+  5      0x92  bytes[4] <= 0x92
+  6      0x09  bytes[5] <= 0x09
+         
+         Assemble: {bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]}
+                 = {0x88, 0x69, 0x19, 0x9D, 0x92, 0x09}
+                 = 48'h886919_9D9209 ✓
+         
+         Comparison: 48'h886919_9D9209 == 48'h886919_9D9209 ✓
+         Match: TRUE ✓
+
+================================================================================
+
+RESOURCE USAGE BREAKDOWN
+────────────────────────────────────────────────────────────────────────────
+
+                    LUTs      FFs       Slices
+                    ────      ────      ──────
+State machine        50        12          20
+Counters            100        80          35
+Comparators          60         0          25
+Multiplexers         40         0          15
+Logic               80         0           30
+                    ────      ──────       ─────
+Subtotal           330        92          125
+
+Data path          120        88          40
+Status outputs      40        40          20
+                    ────      ────        ─────
+Total              490       220          185
+
+Per-state cost: ~25 LUTs per state (for 12 states)
+Memory overhead: ~0 (no RAM, only FF)
+Synthesis efficiency: ~98% (typical)
+
+Estimated on Zynq 7010:
+  - Available LUTs: 28,800
+  - This module: ~490 LUTs (0.17%)
+  - Available FFs: 28,800
+  - This module: ~220 FFs (0.76%)
+
+Integration impact: MINIMAL
+
+================================================================================
+
+END OF VISUAL GUIDE
+================================================================================
